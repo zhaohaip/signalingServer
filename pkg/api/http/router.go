@@ -1,6 +1,8 @@
 package http
 
 import (
+	"github.com/gin-contrib/pprof"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,6 +19,7 @@ func NewRouter(handler *Handler) *router {
 func (r *router) Run(addr string) error {
 	g := gin.Default()
 	r.registerRoutes(g)
+	pprof.Register(g) // 一键注册 pprof 路由（默认挂载到 /debug/pprof 路径）
 	return g.Run(addr)
 }
 

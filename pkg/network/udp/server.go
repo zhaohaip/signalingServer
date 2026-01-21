@@ -17,6 +17,10 @@ type Server struct {
 	mu       sync.RWMutex
 	onPacket func(*Connection, []byte)
 	close    bool
+	sendChan chan struct {
+		target *net.UDPAddr
+		data   []byte
+	}
 }
 
 func NewService(addr string, onPacket func(*Connection, []byte)) *Server {
@@ -24,6 +28,10 @@ func NewService(addr string, onPacket func(*Connection, []byte)) *Server {
 		addr:     addr,
 		clients:  make(map[string]*Connection),
 		onPacket: onPacket,
+		sendChan: make(chan struct {
+			target *net.UDPAddr
+			data   []byte
+		}, 1024),
 	}
 }
 
@@ -45,8 +53,37 @@ func (s *Server) Start() error {
 	s.close = false
 
 	go s.ListenLoop()
+	go s.WriteLoop()
 
 	return nil
+}
+
+func (s *Server) Send(target *net.UDPAddr, data []byte) {
+	if s.close {
+		return
+	}
+
+	select {
+	case s.sendChan <- struct {
+		target *net.UDPAddr
+		data   []byte
+	}{target: target, data: data}:
+	default:
+		log.Println("udp send queue full")
+	}
+}
+
+func (s *Server) WriteLoop() {
+	for {
+		for packet := range s.sendChan {
+			if packet.target != nil {
+				_, err := s.conn.WriteToUDP(packet.data, packet.target)
+				if err != nil {
+					log.Printf("write to udp error: %v", err)
+				}
+			}
+		}
+	}
 }
 
 // 定义数据包缓存池
@@ -124,6 +161,7 @@ func (s *Server) handlePackets(conn *Connection) {
 
 func (s *Server) Close() {
 	s.close = true
+	close(s.sendChan)
 	if s.conn != nil {
 		s.conn.Close()
 	}

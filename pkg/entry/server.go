@@ -7,7 +7,7 @@ import (
 	"webRTCInfra/pkg/network/udp"
 	"webRTCInfra/pkg/network/websocket"
 	"webRTCInfra/pkg/service/sdp"
-	"webRTCInfra/pkg/service/stun"
+	stuntrun "webRTCInfra/pkg/service/stun_turn"
 )
 
 type Server struct {
@@ -15,14 +15,14 @@ type Server struct {
 	apiHandler  *http.Handler
 	udpServer   *udp.Server
 	sdpService  *sdp.Service
-	stunService *stun.Service
+	stunService *stuntrun.Service
 	stunAddr    string
 	httpAddr    string
 
 	wg sync.WaitGroup
 }
 
-func NewServer(httpAddr, stunAddr string) *Server {
+func NewServer(httpAddr, stunAddr, publicIP string) *Server {
 	// 1. 初始化WebSocket连接管理器（SDP服务用）
 	wsManager := websocket.NewManager()
 
@@ -32,7 +32,7 @@ func NewServer(httpAddr, stunAddr string) *Server {
 
 	// 3. 初始化UDP服务器和STUN服务
 	udpServer := udp.NewService(stunAddr, nil)
-	stunService := stun.NewService(udpServer)
+	stunService := stuntrun.NewService(udpServer, publicIP)
 	return &Server{
 		wsManager:   wsManager,
 		apiHandler:  apiHandler,
@@ -48,7 +48,7 @@ func (s *Server) Start() error {
 	if err := s.stunService.Start(); err != nil {
 		return err
 	}
-	log.Println("stun service started at", s.stunAddr)
+	log.Println("stun_turn service started at", s.stunAddr)
 
 	s.wg.Add(1)
 	go s.startHttpServer()

@@ -10,7 +10,11 @@ type Connection struct {
 	Conn     *net.UDPConn
 	addr     *net.UDPAddr
 	recvChan chan []byte
-	close    bool
+	SendChan chan struct {
+		target *net.UDPAddr
+		data   []byte
+	}
+	close bool
 }
 
 func NewUDPConnection(conn *net.UDPConn, addr *net.UDPAddr) *Connection {
@@ -18,6 +22,10 @@ func NewUDPConnection(conn *net.UDPConn, addr *net.UDPAddr) *Connection {
 		Conn:     conn,
 		addr:     addr,
 		recvChan: make(chan []byte, 100),
+		SendChan: make(chan struct {
+			target *net.UDPAddr
+			data   []byte
+		}, 1024),
 	}
 }
 
